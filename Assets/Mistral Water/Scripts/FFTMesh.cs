@@ -277,6 +277,8 @@ public class FFTMesh : MonoBehaviour
 		mesh.vertices = vertMeow;
 		mesh.normals = normals;
 		mesh.colors = colors;
+
+        mesh.RecalculateNormals();
 	}
 
 	#endregion

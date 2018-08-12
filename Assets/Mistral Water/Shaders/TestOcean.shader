@@ -83,6 +83,7 @@
 				i.normal = tex2D(_Bump, i.texcoord).rgb;
 				i.normal = normalize(i.normal);
 				i.normal = UnityObjectToWorldNormal(i.normal);
+
 				float4 diffuse = saturate(dot(i.normal, i.lightDir));
 				diffuse = pow(saturate(diffuse * (1 - _LightWrap) + _LightWrap), 2 * _LightWrap + 1) * _Tint * _LightColor0;
 				i.viewDir = normalize(i.viewDir);

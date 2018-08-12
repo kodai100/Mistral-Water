@@ -7,15 +7,12 @@ public class OceanRenderer : MonoBehaviour
 {
 	#region Public Variables
 
-	[Range(0f, 3f)]
-	public float mult = 2f;
+	[Range(0f, 3f)] public float mult = 2f;
 	public float unitWidth = 1f;
 	public int resolution = 256;
 	public float length = 256f;
-	[Range(0f, 2f)]
-	public float choppiness = 1.5f;
-	[Range(0f, 2f)]
-	public float amplitude = 1f;
+	[Range(0f, 2f)] public float choppiness = 1.5f;
+	[Range(0f, 2f)] public float amplitude = 1f;
 	public Vector2 wind;
 
 	public Shader initialShader;
@@ -40,10 +37,7 @@ public class OceanRenderer : MonoBehaviour
 	private bool currentPhase = false;
 
 	private Mesh mesh;
-	private Vector3[] vertices;
-	private Vector2[] uvs;
-	private int[] indices;
-	private Vector3[] normals;
+	
 
 	private MeshFilter filter;
 
@@ -82,9 +76,9 @@ public class OceanRenderer : MonoBehaviour
 			filter = gameObject.AddComponent<MeshFilter>();
 		}
 		mesh = new Mesh();
-		filter.mesh = mesh;
+		
 		SetParams();
-		GenerateMesh();
+        filter.mesh = GenerateMesh(resolution);
 		RenderInitial();
 	}
 
@@ -121,6 +115,8 @@ public class OceanRenderer : MonoBehaviour
 		oldWind = new Vector2();
 		oldWind.x = wind.x;
 		oldWind.y = wind.y;
+
+        // initialize materials
 		initialMat = new Material(initialShader);
 		spectrumMat = new Material(spectrumShader);
 		fftMat = new Material(fftShader);
@@ -129,10 +125,8 @@ public class OceanRenderer : MonoBehaviour
 		normalMat = new Material(normalShader);
 		whiteMat = new Material(whiteShader);
 		oceanMat = GetComponent<MeshRenderer>().material;
-		vertices = new Vector3[resolution * resolution];
-		indices = new int[(resolution - 1) * (resolution - 1) * 6];
-		normals = new Vector3[resolution * resolution];
-		uvs = new Vector2[resolution * resolution];
+		
+        // initialize render textures
 		resolution *= 8;
 		initialTexture = new RenderTexture(resolution , resolution, 0, RenderTextureFormat.ARGBFloat);
 		pingPhaseTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.RFloat);
@@ -144,7 +138,9 @@ public class OceanRenderer : MonoBehaviour
 		displacementTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.ARGBFloat);
 		normalTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.ARGBFloat);
 		whiteTexture = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.ARGBFloat);
-		initialMat.SetFloat("_RandomSeed1", UnityEngine.Random.value * 10f);
+
+        // set material parameters
+        initialMat.SetFloat("_RandomSeed1", UnityEngine.Random.value * 10f);
 		initialMat.SetFloat("_RandomSeed2", UnityEngine.Random.value * 10f);
 		initialMat.SetFloat("_Amplitude", amplitude / 10000f);
 		initialMat.SetFloat("_Length", length);
@@ -169,41 +165,50 @@ public class OceanRenderer : MonoBehaviour
 		resolution /= 8;
 	}
 
-	private void GenerateMesh()
+	private Mesh GenerateMesh(int res)
 	{
-		int indiceCount = 0;
-		int halfResolution = resolution / 2;
-		for (int i = 0; i < resolution; i++)
+
+        Vector3[] vertices = new Vector3[res * res];
+        Vector2[] uvs = new Vector2[res * res];
+        int[] indices = new int[(res - 1) * (res - 1) * 6];
+        Vector3[] normals = new Vector3[res * res];
+
+
+        int indiceCount = 0;
+		int halfRes = res / 2;
+		for (int i = 0; i < res; i++)
 		{
-			float horizontalPosition = (i - halfResolution) * unitWidth;
-			for (int j = 0; j < resolution; j++)
+			float horizontalPosition = (i - halfRes) * unitWidth;
+			for (int j = 0; j < res; j++)
 			{
-				int currentIdx = i * (resolution) + j;
-				float verticalPosition = (j - halfResolution) * unitWidth;
-				vertices[currentIdx] = new Vector3(horizontalPosition + (resolution % 2 == 0? unitWidth / 2f : 0f), 0f, verticalPosition + (resolution % 2 == 0? unitWidth / 2f : 0f));
+				int currentIdx = i * (res) + j;
+				float verticalPosition = (j - halfRes) * unitWidth;
+				vertices[currentIdx] = new Vector3(horizontalPosition + (res % 2 == 0? unitWidth / 2f : 0f), 0f, verticalPosition + (res % 2 == 0? unitWidth / 2f : 0f));
 				normals[currentIdx] = new Vector3(0f, 1f, 0f);
-				uvs[currentIdx] = new Vector2(i * 1.0f / (resolution - 1), j * 1.0f / (resolution - 1));
-				if (j == resolution - 1)
+				uvs[currentIdx] = new Vector2(i * 1.0f / (res - 1), j * 1.0f / (res - 1));
+				if (j == res - 1)
 					continue;
-				if (i != resolution - 1)
+				if (i != res - 1)
 				{
 					indices[indiceCount++] = currentIdx;
 					indices[indiceCount++] = currentIdx + 1;
-					indices[indiceCount++] = currentIdx + resolution;
+					indices[indiceCount++] = currentIdx + res;
 				}
 				if (i != 0)
 				{
 					indices[indiceCount++] = currentIdx;
-					indices[indiceCount++] = currentIdx - resolution + 1;
+					indices[indiceCount++] = currentIdx - res + 1;
 					indices[indiceCount++] = currentIdx + 1;
 				}
 			}
 		}
+
 		mesh.vertices = vertices;
 		mesh.SetIndices(indices, MeshTopology.Triangles, 0);
 		mesh.normals = normals;
 		mesh.uv = uvs;
-		filter.mesh = mesh;
+
+		return mesh;
 	}
 
 	private void RenderInitial()
@@ -219,6 +224,7 @@ public class OceanRenderer : MonoBehaviour
 
 		currentPhase = !currentPhase;
 		RenderTexture rt = currentPhase ? pingPhaseTexture : pongPhaseTexture;
+
 		dispersionMat.SetTexture("_Phase", currentPhase? pongPhaseTexture : pingPhaseTexture);
 		dispersionMat.SetFloat("_DeltaTime", deltaTime * mult);
 		Graphics.Blit(null, rt, dispersionMat);
@@ -261,9 +267,12 @@ public class OceanRenderer : MonoBehaviour
 			Graphics.Blit(null, blitTarget, fftMat);
 		}
 
-		heightMat.SetTexture("_Phase", currentPhase? pingPhaseTexture : pongPhaseTexture);
+
+        heightMat.SetTexture("_Phase", currentPhase? pingPhaseTexture : pongPhaseTexture);
 		Graphics.Blit(null, spectrumTexture, heightMat);
-		fftMat.EnableKeyword("_HORIZONTAL");
+
+
+        fftMat.EnableKeyword("_HORIZONTAL");
 		fftMat.DisableKeyword("_VERTICAL");
 		for (int i = 0; i < iterations; i++)
 		{
@@ -300,11 +309,13 @@ public class OceanRenderer : MonoBehaviour
 		normalMat.SetTexture("_DisplacementMap", displacementTexture);
 		normalMat.SetTexture("_HeightMap", heightTexture);
 		Graphics.Blit(null, normalTexture, normalMat);
-		whiteMat.SetTexture("_Displacement", displacementTexture);
+
+        whiteMat.SetTexture("_Displacement", displacementTexture);
 		whiteMat.SetTexture("_Bump", normalTexture);
 		whiteMat.SetFloat("_Resolution", resolution * 8);
 		whiteMat.SetFloat("_Length", resolution);
 		Graphics.Blit(null, whiteTexture, whiteMat);
+
 		if (!saved)
 		{
 			oceanMat.SetTexture("_Anim", displacementTexture);
