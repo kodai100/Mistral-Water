@@ -11,6 +11,7 @@
 		_SpecColor ("Specular Color", Color) = (1, 0.25, 0, 1)
 		_Glossiness ("Glossiness", Float) = 64
 		_RimColor ("Rim Color", Color) = (0, 0, 1, 1)
+		_Cube("Cube Map", Cube) = "" {}
 	}
 
 	SubShader
@@ -42,6 +43,8 @@
 
 			uniform float4 _LightColor0;
 
+			UNITY_DECLARE_TEXCUBE(_Cube);
+
 			struct VertexInput
 			{
 				float4 vertex : POSITION;
@@ -58,6 +61,7 @@
 				float3 viewDir : TEXCOORD4;
 			};
 
+
 			VertexOutput vert(VertexInput v)
 			{
 				VertexOutput o;
@@ -66,11 +70,9 @@
 				v.vertex.xz += tex2Dlod(_Anim, v.texcoord).rb / 8;
 
 				o.pos = UnityObjectToClipPos(v.vertex);
-
-				o.normal = UnityObjectToWorldNormal(tex2Dlod(_Bump, v.texcoord).rgb);
-
 				o.color = tex2Dlod(_White, v.texcoord).r;
 
+				o.normal = UnityObjectToWorldNormal(tex2Dlod(_Bump, v.texcoord).rgb);
 				o.lightDir = normalize(WorldSpaceLightDir(v.vertex));
 				o.viewDir = normalize(WorldSpaceViewDir(v.vertex));
 				o.texcoord = v.texcoord;
@@ -84,16 +86,27 @@
 				i.normal = normalize(i.normal);
 				i.normal = UnityObjectToWorldNormal(i.normal);
 
+				float3 worldRefl = reflect(-i.viewDir, i.normal);
+
+
 				float4 diffuse = saturate(dot(i.normal, i.lightDir));
 				diffuse = pow(saturate(diffuse * (1 - _LightWrap) + _LightWrap), 2 * _LightWrap + 1) * _Tint * _LightColor0;
+
 				i.viewDir = normalize(i.viewDir);
 				i.lightDir = normalize(i.lightDir);
 				float3 H = normalize(i.viewDir + i.lightDir);
 				float NdotH = saturate(dot(i.normal, H));
+
 				float4 specular = _SpecColor * saturate(pow(NdotH, _Glossiness)) * _LightColor0;
 				float4 rim = _RimColor * pow(max(0, 1 - saturate(dot(i.normal, i.viewDir))), 1.5);
+				
+
+				half factor = dot(normalize(i.viewDir), i.normal);
+				half4 skyData = (0.3 - factor) * UNITY_SAMPLE_TEXCUBE(_Cube, worldRefl);
+
+
 				//return saturate(pow(NdotH, _Glossiness));
-				return diffuse + specular + pow(i.color / 2, 2) + rim;
+				return diffuse + specular + pow(i.color / 2, 2) + rim + skyData;
 			}
 
 			ENDCG
